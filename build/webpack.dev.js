@@ -5,7 +5,7 @@ const baseConfig = require('./webpack.base.js');
 
 module.exports = merge(baseConfig, {
   mode: 'development', //开发模式，会省去代码优化步骤，打包速度会比生产环境快
-  entry: path.join(__dirname, '../demo/index.ts'), // 入口文件配置
+  entry: path.join(__dirname, '../demo/index.js'), // 入口文件配置
   devtool: 'eval-cheap-module-source-map', // Tradeoff choice for development builds. build:slow, rebuild: fast
   devServer: {
     port: 8888,
