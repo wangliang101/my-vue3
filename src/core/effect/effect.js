@@ -10,7 +10,8 @@ let activeEffect;
 
 // 定义一个数据结构，下边会通过定时器修改其中的数据，然后通过修改引发dom的重新渲染
 const data = {
-  text: 'hello, wliang'
+  text: 'hello, wliang',
+  ok: true
 };
 
 const obj = new Proxy(data, {
@@ -35,7 +36,6 @@ const obj = new Proxy(data, {
 const track = (target, key) => {
   // 如果没有副作用函数，就直接返回
   if (!activeEffect) return;
-
   // 获取依赖的map，其结构为map => {key: effect}
   let depsMap = bucket.get(target);
 
@@ -54,6 +54,8 @@ const track = (target, key) => {
 
   // 将副作用函数添加进bucket中
   deps.add(activeEffect);
+  // 主要是为了收集哪些deps与当前的effectFn有关，从而解决切分支cleanup
+  activeEffect.deps.push(deps);
 };
 
 /**
@@ -68,54 +70,54 @@ const trigger = (target, key) => {
   // 没有被注册函数时，直接return
   if (!depsMap) return;
   const deps = depsMap.get(key);
-  deps && deps.forEach(fn => fn());
+
+  const effectsToRun = new Set(deps);
+  effectsToRun && effectsToRun.forEach(fn => fn());
 };
 
-// 此函数现在仅用于注册
+// 定义副作用函数
 function effect(fn) {
-  activeEffect = fn;
-  fn();
+  const effectFn = () => {
+    cleapup(effectFn);
+    // 当 effectFn 执行的时候，将其设置为当前激活的副作用函数
+    activeEffect = effectFn;
+    fn();
+  };
+
+  // effectFn.deps用来存储所有与该副作用函数相关的依赖集合
+  effectFn.deps = [];
+  // 执行该副作用函数
+  effectFn();
+}
+
+function cleapup(effectFn) {
+  for (let i = 0; i < effectFn.deps.length; i++) {
+    // deps是所有和effectFn相关的依赖集合
+    const deps = effectFn.deps[i];
+    // 删除集合中的effectFn
+    deps.delete(effectFn);
+  }
+  effectFn.deps.length = 0;
 }
 
 effect(() => {
-  document.body.innerText = obj.text;
+  document.body.innerText = obj.ok ? obj.text : 'not';
   console.log('effect 1');
 });
 
-effect(() => {
-  document.body.innerText = `${obj.text} 2`;
-  console.log('effect 2');
-});
+// effect(() => {
+//   document.body.innerText = `${obj.text} 2`;
+//   console.log('effect 2');
+// });
 
 // 定时器修改值
-setTimeout(() => {
-  obj.text = 'hello, vue';
-}, 1000);
+// setTimeout(() => {
+//   obj.text = 'hello, vue';
+// }, 1000);
 
 setTimeout(() => {
-  obj.noExist = 'hello, react';
+  obj.ok = false;
 }, 3000);
 
 window.bucket = bucket;
-window.data = data;
-console.log('xxx', bucket);
-
-/**
- * 为什么bucket要使用weakMap
- * 因为weakmap的键是弱引用，不影响垃圾回收
- */
-const map = new Map();
-const weakMap = new WeakMap();
-
-(function () {
-  const foo = { foo: 1 };
-  const bar = { bar: 2 };
-
-  map.set(foo, 1);
-  weakMap.set(bar, 2);
-})();
-
-setTimeout(() => {
-  console.log('1111', map);
-  console.log('2222', weakMap);
-}, 3000);
+window.obj = obj;
