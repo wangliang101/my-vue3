@@ -5,8 +5,8 @@ const patchChildren = (n1, n2, container) => {
     // 暂时不考虑
   } else if (Array.isArray(n2.children)) {
     // 新旧children
-    const oldChildren = n2.children;
-    const newChildren = n1.children;
+    const oldChildren = n1.children;
+    const newChildren = n2.children;
 
     const oldLen = oldChildren.length;
     const newLen = newChildren.length;
